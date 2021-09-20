@@ -8,20 +8,24 @@ from telebot import types
 import sqlite3
 from random import randint
 from time import sleep
-from SimpleQIWI import *
+
 from datetime import date, datetime
 from threading import Thread
 import random
 import string
 import json
+import requests
+import time
 global client
 client = telebot.TeleBot(config.CONFIG['token'])
 global api
+global token
+global phone
 token = config.CONFIG['qiwi']
 phone = config.CONFIG['phone']
-api = QApi(token=token, phone=phone)
+
 threads=[]
-tt = datetime.now()
+
 db = sqlite3.connect('users.db')
 cursor = db.cursor()
 
@@ -37,27 +41,95 @@ cursor.execute("""CREATE TABLE IF NOT EXISTS users (
 )""")
 
 
-
 def generate_random_string(length):
     letters = string.ascii_lowercase
     return ''.join(random.choice(letters) for i in range(length))
 
 def update():
+    pribal = 0
+    db = sqlite3.connect('users.db')
+    cursor = db.cursor()
+
+    cursor.execute("""CREATE TABLE IF NOT EXISTS users (
+        user_id TEXT,
+        qrule TEXT,
+        cash INTEGER,
+        usersinbot INTEGER,
+        pay TEXT,
+        pay_money INTEGER,
+        torg TEXT
+        
+    )""")
 
     while True:
-
-        if tt.hour == 0:
-            for x in cursor.execute(f"SELECT usersinbot FROM users WHERE user_id = '{'AdminUsers'}'"):
-                pribal = x[0]
-            formul = 1 + pribal /100 
-            cursor.execute(f"SELECT (cash * {formul}) FROM users")
+        tt = datetime.now()
         
-        sleep(50)
+        if tt.hour == 0:
+            for x in cursor.execute(f"SELECT cash FROM users WHERE user_id = '{'AdminUsers'}'"):
+                pribal = x[0]
+            formul = 1 + pribal /100
+            cursor.execute('''SELECT * FROM users''')
+            records = cursor.fetchall()
+            id = ''
+
+            for row in records:
+                
+                cursor.execute("UPDATE users SET cash = ? WHERE user_id = ?", (row[2] * formul, row[0]))
+                db.commit()
+
+
+        
+        sleep(3)
 
 
 
 
+# Перевод на QIWI Кошелек
+def send_p2p(api_access_token, to_qw, comment, sum_p2p):
+    s = requests.Session()
+    s.headers = {'content-type': 'application/json'}
+    s.headers['authorization'] = 'Bearer ' + api_access_token
+    s.headers['User-Agent'] = 'Android v3.2.0 MKT'
+    s.headers['Accept'] = 'application/json'
+    postjson = {"id":"","sum":{"amount":"","currency":""},"paymentMethod":{"type":"Account","accountId":"643"}, "comment":"'+comment+'","fields":{"account":""}}
+    postjson['id'] = str(int(time.time() * 1000))
+    postjson['sum']['amount'] = sum_p2p
+    postjson['sum']['currency'] = '643'
+    postjson['fields']['account'] = to_qw
+    postjson['comment'] = comment
+    res = s.post('https://edge.qiwi.com/sinap/api/v2/terms/99/payments',json = postjson)
+    return res.json()
 
+
+# История платежей - последние и следующие n платежей
+def payment_history_last(my_login, api_access_token, rows_num, next_TxnId, next_TxnDate):
+    s = requests.Session()
+    s.headers['authorization'] = 'Bearer ' + api_access_token  
+    parameters = {'rows': rows_num, 'nextTxnId': next_TxnId, 'nextTxnDate': next_TxnDate}
+    h = s.get('https://edge.qiwi.com/payment-history/v2/persons/' + my_login + '/payments', params = parameters)
+    return h.json()
+
+def send_card(api_access_token, payment_data):
+    # payment_data - dictionary with all payment data
+    s = requests.Session()
+    s.headers['Accept'] = 'application/json'
+    s.headers['Content-Type'] = 'application/json'
+    s.headers['authorization'] = 'Bearer ' + api_access_token
+    postjson = {"id":"","sum": {"amount":"","currency":"643"},"paymentMethod": {"type":"Account","accountId":"643"},"fields": {"account":""}}
+    postjson['id'] = str(int(time.time() * 1000))
+    postjson['sum']['amount'] = payment_data.get('sum')
+    postjson['fields']['account'] = payment_data.get('to_card')
+    prv_id = payment_data.get('prv_id')
+    if payment_data.get('prv_id') in ['1960', '21012']:
+        postjson['fields']['rem_name'] = payment_data.get('rem_name')
+        postjson['fields']['rem_name_f'] = payment_data.get('rem_name_f')
+        postjson['fields']['reg_name'] = payment_data.get('reg_name')
+        postjson['fields']['reg_name_f'] = payment_data.get('reg_name_f')
+        postjson['fields']['rec_city'] = payment_data.get('rec_address')
+        postjson['fields']['rec_address'] = payment_data.get('rec_address')
+        
+    res = s.post('https://edge.qiwi.com/sinap/api/v2/terms/' + prv_id + '/payments', json = postjson)
+    return res.json()
 
 
 
@@ -87,15 +159,15 @@ def write_users(message):
     cursor.execute(f"SELECT user_id FROM users WHERE user_id = '{message.chat.id}'")
     if cursor.fetchone() is None:
         
-        users_list = [message.chat.id, 'True', 100, 0, 'nopay', 0, 'False']
+        users_list = [message.chat.id, 'True', 1, 0, 'nopay', 0, 'False']
 
         cursor.execute("INSERT INTO users VALUES(?,?,?,?,?,?,?);", users_list)
         db.commit()
         cursor.execute(f"SELECT user_id FROM users WHERE user_id = '{'AdminUsers'}'")
         if cursor.fetchone() is None:
 
-            #! Поле cash админа заноситься процент прибыли
-            users_list = ['AdminUsers', 'True', 10, 0, 'admin', 0, 'False']
+            #! Поле pay_money админа заноситься процент прибыли
+            users_list = ['AdminUsers', 'True', 0, 0, 'admin', 10, 'False']
 
 
             cursor.execute("INSERT INTO users VALUES(?,?,?,?,?,?,?);", users_list)
@@ -131,8 +203,8 @@ def pay(message):
     
     
     
-    price = 1
-    comment = api.bill(price, comment=generate_random_string(7))
+
+    comment = generate_random_string(7)
     
     
     
@@ -153,7 +225,7 @@ def pay(message):
     markup_inline.add(item_pay)
     markup_inline.add(item_check)
     markup_inline.add(item_back)
-    client.send_message(message.chat.id, f'Нажмите на кнопку оптатить для перехода к оплате. В комментариях к переводу укажите ключ - {comment} Если вы не укажите его деньги не зачисляться на счёт. После оплаты проверьте её нажам на соответствующую кнопку. Учтите что поступившие деньги на счёт будут с учётом комисси QIWI. Посмотреть размер коммисии можно при переводе.', reply_markup=markup_inline)
+    client.send_message(message.chat.id, f'Нажмите на кнопку оптатить для перехода к оплате. В комментариях к переводу укажите ключ - {comment}, если вы не укажите его деньги не зачисляться на счёт. После оплаты проверьте её нажав на соответствующую кнопку. Учтите что сумма поступившая на счёт будет с учётом коммиси QIWI. Посмотреть размер коммисии можно при переводе.', reply_markup=markup_inline)
     
         
 
@@ -177,13 +249,24 @@ def money_exit(message):
     )""")
     
     
-    
+    balance = 0
     
     for i in cursor.execute(f"SELECT cash FROM users WHERE user_id = '{message.chat.id} '"):
         balance = i[0]
     
-    api.pay(account=message.text, amount=balance*comiss, comment='Вывод денег из торгового бота')
-    client.send_message(message.chat.id, 'Операция прошла успешно')
+    pay = send_p2p(token, message.text,'Вывод денег из торгового бота', float(balance*comiss))
+    with open('data.json', 'w', encoding='utf-8') as f:
+
+        json.dump(pay, f, ensure_ascii=False, indent=4)
+
+
+    client.send_message(message.chat.id, pay['message'])
+    
+    
+    
+    
+
+    
     
 
 
@@ -249,15 +332,17 @@ def main(message):
 
                     markup_reply = types.ReplyKeyboardMarkup(resize_keyboard=True)
                     item_balance = types.KeyboardButton('💱 Оплатить торгового робота')
-                    item_torg = types.KeyboardButton('🟢 Начать торгавать')
+                    item_torg = types.KeyboardButton('🟢 Начать торговать')
                     item_exit = types.KeyboardButton('💸 Вывести деньги')
                     item_help = types.KeyboardButton('❓ Тех поддержка')
                 else:
                     markup_reply = types.ReplyKeyboardMarkup(resize_keyboard=True)
                     item_balance = types.KeyboardButton('💱 Оплатить торгового робота')
-                    item_torg = types.KeyboardButton('🔴 Закончить торгавать')
+                    item_torg = types.KeyboardButton('🔴 Закончить торговать')
                     item_exit = types.KeyboardButton('💸 Вывести деньги')
                     item_help = types.KeyboardButton('❓ Тех поддержка')
+                link = '[<Ваш текст>](<https://t.me/joinchat/ZQYVR7Gwl5AxM2Ni>)'
+                vip = 'Обсуждения по поводу бота проводяться в чате: https://t.me/joinchat/ZQYVR7Gwl5AxM2Ni'
                 markup_reply.add(item_balance, item_exit)
                 markup_reply.add(item_torg, item_help)
                 
@@ -278,7 +363,8 @@ def main(message):
             client.send_message(message.chat.id, f'''
 💲 Ваш баланс - {balance}
 🆔 Ваш ID - {message.chat.id}
-🙎‍♂️ Число пользователей - {users}''', reply_markup=markup_reply)
+🙎‍♂️ Число пользователей - {users}
+{vip}''', reply_markup=markup_reply)
 
 
         
@@ -339,7 +425,8 @@ def main(message):
 def welcom(message):
 
 
-
+    
+    
     
     
     main(message)
@@ -403,15 +490,15 @@ def get_text(message):
                 balance = i[0]
 
         global comiss
-        comiss = 0.001
-        client.send_message(message.chat.id, f'Отправте мне номер телефона QIWI кошелька для вывода денег. Деньги выводятся с коммисией. За раз выводиться вся сумма кошелька с коммисией - {balance * comiss}', reply_markup=markup_inline)
+        comiss = 1
+        client.send_message(message.chat.id, f'Отправте мне номер телефона QIWI кошелька для вывода денег. Деньги выводятся с коммисией. За раз выводиться вся сумма кошелька с коммисией - {float(balance * comiss)}', reply_markup=markup_inline)
         client.register_next_step_handler(message, money_exit)
-    elif 'закончить торгавать' in message.text.lower():
+    elif 'закончить торговать' in message.text.lower():
         cursor.execute(f"UPDATE users SET torg = ? WHERE user_id = ?", ('False', message.chat.id))
         db.commit()
         client.send_message(message.chat.id, 'Торговля остановлена')
         main(message)
-    elif 'начать торгавать' in message.text.lower():
+    elif 'начать торговать' in message.text.lower():
         cursor.execute(f"UPDATE users SET torg = ? WHERE user_id = ?", ('True', message.chat.id))
         db.commit()
         client.send_message(message.chat.id, 'Торговля Запущена')
@@ -460,26 +547,21 @@ def answer(call):
 
         for i in cursor.execute(f"SELECT pay FROM users WHERE user_id = '{call.message.chat.id}'"):
             comment = i[0]
+        # последние 20 платежей
+        lastPayments = payment_history_last(phone, token, '20','','')
+        for payment in lastPayments():
+            if payment['comment'] == comment:
+                amount = payment['total']['amount']
+                break
+        for x in cursor.execute(f"SELECT cash FROM users WHERE user_id = '{call.message.chat.id}'"):
+            balance = x[0]
 
-        
-        api.start()
-        if api.check(comment): 
             
-            balance = 0
-            
-            # Проверяем статус
-
-            for x in cursor.execute(f"SELECT cash FROM users WHERE user_id = '{call.message.chat.id}'"):
-                balance = x[0]
-
-
-
-            client.send_message(call.message.chat.id, 'Оплата прошла успешно')
-            key = api.payments['data'][0]['comment']
-            if key == comment:
-                money = api.payments['data'][0]['total']['amount']
-                cursor.execute("UPDATE users SET cash = ? WHERE user_id = ?", (int(balance) + int(money), call.message.chat.id))
-                db.commit()
+            cursor.execute("UPDATE users SET cash = ? WHERE user_id = ?", (int(balance) + int(amount), call.message.chat.id))
+            db.commit()
+            cursor.execute("UPDATE users SET pay = ? WHERE user_id = ?", ('nopay', call.message.chat.id))
+            db.commit()
+            main(call.message)
 
         else:
             client.send_message(call.message.chat.id, 'Оплата не найдена. Если вы произвели оплату подождите немножко и ещё раз выполните проверку. Техподдержака - тут ссылка на тех поддержку')
