@@ -1,9 +1,9 @@
 CONFIG = {
     'token': '1953731693:AAFR39eM6XoPWUHFD9jRNw3CIbidYxEFHt8',
-    'qiwi': 'ae3cd45b820c3d6b6fb0058a6b44b0de',
-    'phone': '+79259058006'
+    'qiwi': '53cb4419bf61a1d64855062654183360',
+    'phone': '+79027996952'
 }
 
-#ae3cd45b820c3d6b6fb0058a6b44b0de
+#f80e6baaa6b06dde239abf55665b7583
 #+79259058006
 

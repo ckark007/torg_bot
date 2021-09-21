@@ -1,4 +1,19 @@
 {
-    "code": "QWPRC-300",
-    "message": "Техническая ошибка"
+    "id": "5471354",
+    "terms": "99",
+    "fields": {
+        "account": "+79259058006"
+    },
+    "sum": {
+        "amount": 1,
+        "currency": "643"
+    },
+    "transaction": {
+        "id": "23480931390",
+        "state": {
+            "code": "Accepted"
+        }
+    },
+    "comment": "Вывод денег",
+    "source": "account_643"
 }
