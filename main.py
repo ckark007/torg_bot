@@ -323,7 +323,7 @@ def main(message):  # sourcery no-metrics
             else:
                 item_torg = types.KeyboardButton('🔴 Закончить торговать')
             
-            vip = 'Обсуждения по поводу бота проводяться в чате: https://t.me/joinchat/ZQYVR7Gwl5AxM2Ni'
+            vip = 'Обсуждения по поводу бота проводяться в [чате](https://t.me/joinchat/ZQYVR7Gwl5AxM2N)'
             markup_reply.add(item_balance, item_exit)
             markup_reply.add(item_torg, item_help)
             
@@ -347,7 +347,7 @@ def main(message):  # sourcery no-metrics
 💲 Ваш баланс - {balance}
 🆔 Ваш ID - {message.chat.id}
 🙎‍♂️ Число пользователей - {users}
-{vip}''', reply_markup=markup_reply)
+{vip}''', reply_markup=markup_reply, parse_mode='Markdown')
 
 
     else:
