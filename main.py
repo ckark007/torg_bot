@@ -23,6 +23,10 @@ client = telebot.TeleBot(config.CONFIG['token'])
 global api
 global token
 global phone
+
+
+
+
 global minimize_amount
 minimize_amount = 7
 
@@ -196,7 +200,7 @@ def pay(message):
     markup_inline.add(item_pay)
     markup_inline.add(item_check)
     markup_inline.add(item_back)
-    client.send_message(message.chat.id, f'Нажмите на кнопку оплатить для перехода к оплате. В комментариях к переводу укажите ключ - {comment}, если Вы не укажите его, деньги не зачислятся на счёт. После оплаты проверьте её, нажав на соответствующую кнопку. Учтите, что сумма поступившая на счёт будет с учётом комиссии QIWI. Посмотреть размер комиссии можно при переводе. Минимальная сумма пополнения - {minimize_amount}р, если сумма оплаты будет меньше деньги не зачисляться на счёт.', reply_markup=markup_inline)
+    client.send_message(message.chat.id, f'Нажмите на кнопку оплатить для перехода к оплате. В комментариях к переводу укажите ключ - {comment}, если Вы не укажите его, деньги не зачислятся на счёт. После оплаты проверьте её, нажав на соответствующую кнопку. Учтите, что сумма поступившая на счёт будет с учётом комиссии QIWI. Посмотреть размер комиссии можно при переводе. Минимальная сумма пополнения - {str(minimize_amount)}р, если сумма оплаты будет меньше деньги не зачисляться на счёт.', reply_markup=markup_inline)
     
         
 
@@ -465,9 +469,9 @@ def answer(call):
         for i in cursor.execute(f"SELECT pay FROM users WHERE user_id = '{call.message.chat.id}'"):
             comment = i[0]
         # последние 20 платежей
-        lastPayments = payment_history_last(phone, token, '20','','')
+        last_payments = payment_history_last(phone, token, '10','','')
         
-        for payment in payment_history_last(phone,token, '5', '', '')['data']:
+        for payment in last_payments['data']:
             qcomment = payment['comment']
             if comment in qcomment:
 
