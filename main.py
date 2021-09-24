@@ -1,9 +1,10 @@
 from logging import exception
 from os import name
 import telebot
-from types import CellType
+
 
 from telebot.types import Message
+#from types import CellType
 import config
 from telebot import types
 import sqlite3
@@ -22,6 +23,12 @@ client = telebot.TeleBot(config.CONFIG['token'])
 global api
 global token
 global phone
+global minimize_amount
+minimize_amount = 7
+
+
+
+
 token = config.CONFIG['qiwi']
 phone = config.CONFIG['phone']
 
@@ -29,43 +36,15 @@ threads=[]
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#Функция генерации ключей для оплаты
 
 def generate_random_string(length):
     letters = string.ascii_lowercase
     return ''.join(random.choice(letters) for i in range(length))
 
+
+
+#функция обновления баланся
 def update():
     pribal = 0
     db = sqlite3.connect('users.db')
@@ -102,7 +81,7 @@ def update():
 
 
         
-        sleep(3)
+        sleep(40)
 
 
 
@@ -134,24 +113,7 @@ def payment_history_last(my_login, api_access_token, rows_num, next_TxnId, next_
 
 
 
-with open('data2.json', 'w', encoding='utf-8') as f:
-
-    json.dump(payment_history_last(phone,token, '5', '', ''), f, ensure_ascii=False, indent=4)
-
-
-
-
-
-    
-    
-
-
-
-
-
-
-
-
+#Запись нового юзера
 def write_users(message):
     
     db = sqlite3.connect('users.db')
@@ -172,7 +134,7 @@ def write_users(message):
     cursor.execute(f"SELECT user_id FROM users WHERE user_id = '{message.chat.id}'")
     if cursor.fetchone() is None:
         
-        users_list = [message.chat.id, 'False', 1, 0, 'nopay', 0, 'False', 'True']
+        users_list = [message.chat.id, 'False', 0, 0, 'nopay', 0, 'False', 'True']
 
         cursor.execute("INSERT INTO users VALUES(?,?,?,?,?,?,?,?);", users_list)
         db.commit()
@@ -198,7 +160,7 @@ def write_users(message):
 
 
 
-
+#функция пополнения баланса
 def pay(message):
     
     db = sqlite3.connect('users.db')
@@ -220,13 +182,7 @@ def pay(message):
     
 
     comment = generate_random_string(7)
-    
-    
-    
-    
-    
-    
-    
+
     cursor.execute("UPDATE users SET pay = ? WHERE user_id = ?", (comment, message.chat.id))
     db.commit()
     
@@ -240,12 +196,12 @@ def pay(message):
     markup_inline.add(item_pay)
     markup_inline.add(item_check)
     markup_inline.add(item_back)
-    client.send_message(message.chat.id, f'Нажмите на кнопку оплатить для перехода к оплате. В комментариях к переводу укажите ключ - {comment}, если Вы не укажите его, деньги не зачислятся на счёт. После оплаты проверьте её, нажав на соответствующую кнопку. Учтите, что сумма поступившая на счёт будет с учётом комиссии QIWI. Посмотреть размер комиссии можно при переводе.', reply_markup=markup_inline)
+    client.send_message(message.chat.id, f'Нажмите на кнопку оплатить для перехода к оплате. В комментариях к переводу укажите ключ - {comment}, если Вы не укажите его, деньги не зачислятся на счёт. После оплаты проверьте её, нажав на соответствующую кнопку. Учтите, что сумма поступившая на счёт будет с учётом комиссии QIWI. Посмотреть размер комиссии можно при переводе. Минимальная сумма пополнения - {minimize_amount}р, если сумма оплаты будет меньше деньги не зачисляться на счёт.', reply_markup=markup_inline)
     
         
 
     
-
+#aeyrwbz вывода денег
 def money_exit(message):
     
     if '+' not in message.text.lower():
@@ -273,51 +229,39 @@ def money_exit(message):
     
     for i in cursor.execute(f"SELECT cash FROM users WHERE user_id = '{message.chat.id}'"):
         balance = i[0]
-        print(balance)
+        
     exit2 = int(balance * comiss)
     pay = send_p2p(token, str(message.text), str(exit2))
-    with open('data.json', 'w', encoding='utf-8') as f:
-
-        json.dump(pay, f, ensure_ascii=False, indent=4)
+    print(pay)
+    
+    
 
     try:
         client.send_message(message.chat.id, pay['message'])
         sleep(1)
+
     except KeyError:
+
         cursor.execute("UPDATE users SET cash = ? WHERE user_id = ?", (0, message.chat.id))
         db.commit()
         client.send_message(message.chat.id, 'Оплата прошла успешно')
     main(message)
-    
-    
-    
-    
-
-    
-    
 
 
 
-
-
-
-
-
-
-
-
+#Сообщение с правилами
 def reg(message):
     markup_inline = types.InlineKeyboardMarkup()
 
     item_ok = types.InlineKeyboardButton(text = 'Принять правила', callback_data='ok')
     markup_inline.add(item_ok)
-    client.send_message(message.chat.id, 'Правила', reply_markup=markup_inline)
+    client.send_message(message.chat.id, 'Правила', reply_markup=markup_inline) #!Сдесь надо поменять текст
 
 
 
 
 
-
+#Главное меню
 def main(message):  # sourcery no-metrics
     balance = 0
     users = 0
@@ -401,57 +345,9 @@ def main(message):  # sourcery no-metrics
 {vip}''', reply_markup=markup_reply)
 
 
-    
-
-
     else:
 
         reg(message)
-    
-        
-
-
-
-
-
-
-            
-    ''' except:
-        markup_inline = types.InlineKeyboardMarkup()
-        item_yes = types.InlineKeyboardButton(text = 'Принять правила', callback_data='ok')
-        markup_inline.add(item_yes)
-        
-        
-
-    
-
-        
-        client.send_message(message.chat.id, 'Тут будет сообщение с правилами', reply_markup=markup_inline)'''
-
-        
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -460,16 +356,8 @@ def welcom(message):
 
 
     
-    
-    
-    
     main(message)
     
-
-
-
-
-
 
 
 
@@ -539,13 +427,6 @@ def get_text(message):
         client.send_message(message.chat.id, 'Торговля Запущена')
         main(message)
 
-        
-        
-
-
-
-
-
 
 @client.callback_query_handler(func=lambda call: True)
 def answer(call):
@@ -596,10 +477,15 @@ def answer(call):
                 qpay2 = True
 
                 amount = payment['total']['amount']
-                cursor.execute("UPDATE users SET pay = ? WHERE user_id = ?", ('nopay', call.message.chat.id))
-                db.commit()
-                cursor.execute("UPDATE users SET cash = ? WHERE user_id = ?", (int(balance) + int(amount), call.message.chat.id))
-                db.commit()
+                if int(amount) >= minimize_amount:
+
+                    cursor.execute("UPDATE users SET pay = ? WHERE user_id = ?", ('nopay', call.message.chat.id))
+                    db.commit()
+                    cursor.execute("UPDATE users SET cash = ? WHERE user_id = ?", (int(balance) + int(amount), call.message.chat.id))
+                    db.commit()
+                    client.send_message(call.message.chat.id, 'Оплата найдена. Деньги занесны на счёт.')
+                else:
+                    client.send_message(call.message.chat.id, f'Сумма пополнения меньше {minimize_amount} рублей. Деньги не зачислены на счёт')
                 
                 
                 main(call.message)
@@ -610,20 +496,6 @@ def answer(call):
         if qpay2 is False:
 
             client.send_message(call.message.chat.id, 'Оплата не найдена. Если вы произвели оплату подождите немножко и ещё раз выполните проверку. Тех поддержака: @Nncode')
-
-        
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 thread1=Thread(target=update); threads.append(thread1)
