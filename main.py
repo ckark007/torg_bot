@@ -33,8 +33,8 @@ token = config.CONFIG['qiwi']
 phone = config.CONFIG['phone']
 
 threads=[]
-
-
+global procent_ot_pribali
+procent_ot_pribali = 10
 
 #Функция генерации ключей для оплаты
 
@@ -142,7 +142,7 @@ def write_users(message):
         if cursor.fetchone() is None:
 
             #! Поле pay_money админа заноситься процент прибыли
-            users_list = ['AdminUsers', 'True', 0, 0, 'admin', 10, 'False', 'True']
+            users_list = ['AdminUsers', 'True', 0, 0, 'admin', procent_ot_pribali, 'False', 'True']
 
 
             cursor.execute("INSERT INTO users VALUES(?,?,?,?,?,?,?,?);", users_list)
