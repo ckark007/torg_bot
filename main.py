@@ -23,7 +23,8 @@ client = telebot.TeleBot(config.CONFIG['token'])
 global api
 global token
 global phone
-
+global comiss
+comiss = 1
 
 
 
@@ -416,8 +417,7 @@ def get_text(message):
         for i in cursor.execute(f"SELECT cash FROM users WHERE user_id = '{message.chat.id}'"):
                 balance = i[0]
 
-        global comiss
-        comiss = 1
+        
         client.send_message(message.chat.id, f'Отправте номер телефона QIWI кошелька для вывода денег. Пример номера телефона - +79021234567, обязательно начинайте со знака +. Деньги выводятся с комиссией. За раз выводится вся сумма кошелька с комиссией -{int(balance * comiss)}', reply_markup=markup_inline)
         client.register_next_step_handler(message, money_exit)
     elif 'закончить торговать' in message.text.lower():
@@ -485,7 +485,7 @@ def answer(call):
 
                     cursor.execute("UPDATE users SET pay = ? WHERE user_id = ?", ('nopay', call.message.chat.id))
                     db.commit()
-                    cursor.execute("UPDATE users SET cash = ? WHERE user_id = ?", (int(balance) + int(amount), call.message.chat.id))
+                    #cursor.execute("UPDATE users SET cash = ? WHERE user_id = ?", (int(balance) + int(amount), call.message.chat.id))
                     db.commit()
                     client.send_message(call.message.chat.id, 'Оплата найдена. Деньги занесны на счёт.')
                 else:
